@@ -15,7 +15,7 @@ const COMMISSION_RATE = Math.max(0, Math.min(50, Number(process.env.PLATFORM_COM
 app.use(cors());
 app.use(express.json({limit:'2mb'}));
 app.use('/uploads', express.static(path.join(__dirname,'uploads')));
-app.use(express.static(path.join(__dirname,'public')));
+app.use(express.static(path.join(__dirname,'Public')));
 
 const starterProducts = [
  {id:1,name:'Modern 3-Seater Sofa',category:'Living Room',price:1250000,oldPrice:1450000,description:'Comfortable modern sofa for your living room.',image:'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=900',stock:8,rating:4.8,approved:true,seller:'FurniMarket Store',sellerEmail:'store@furnimarket.ug'},
