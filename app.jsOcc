@@ -1,0 +1,125 @@
+const API="/api";
+let products=[],categories=[],cart=JSON.parse(localStorage.getItem("fm_cart")||"[]");
+let token=localStorage.getItem("fm_token")||"",currentUser=JSON.parse(localStorage.getItem("fm_user")||"null"),activeCategory="All";
+const money=n=>"UGX "+Number(n).toLocaleString("en-UG");
+const el=id=>document.getElementById(id);
+async function request(url,options={}) {
+  const headers={"Content-Type":"application/json",...(options.headers||{})};
+  if(token) headers.Authorization="Bearer "+token;
+  const res=await fetch(API+url,{...options,headers});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||"Something went wrong");
+  return data;
+}
+function saveCart(){localStorage.setItem("fm_cart",JSON.stringify(cart));el("cartCount").textContent=cart.reduce((s,x)=>s+x.quantity,0);}
+function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+async function init(){
+  el("year").textContent=new Date().getFullYear();saveCart();
+  try{categories=await request("/categories");renderCategories();await loadProducts();}catch(e){el("productGrid").innerHTML='<p class="empty">Could not connect to the store. Please refresh the page.</p>';}
+}
+function renderCategories(){
+  el("categoryBar").innerHTML=["All",...categories].map(c=>`<button class="${c===activeCategory?"active":""}" data-cat="${safe(c)}">${safe(c)}</button>`).join("");
+  el("categoryBar").querySelectorAll("button").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;renderCategories();loadProducts();});
+}
+async function loadProducts(q=""){
+  const params=new URLSearchParams();if(q)params.set("q",q);if(activeCategory!=="All")params.set("category",activeCategory);
+  products=await request("/products?"+params.toString());sortProducts();renderProducts();
+}
+function sortProducts(){
+  const sort=el("sortSelect").value;
+  if(sort==="low")products.sort((a,b)=>a.price-b.price);
+  if(sort==="high")products.sort((a,b)=>b.price-a.price);
+}
+function renderProducts(){
+  if(!products.length){el("productGrid").innerHTML='<p class="empty">No furniture found. Try another search.</p>';return;}
+  el("productGrid").innerHTML=products.map(p=>`<article class="card">
+    <img src="${safe(p.image||"https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=900")}" alt="${safe(p.name)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=900'">
+    <div class="cardbody"><div class="cardcat">${safe(p.category)}</div><h3>${safe(p.name)}</h3><div class="price">${money(p.price)} ${p.oldPrice?`<span class="oldprice">${money(p.oldPrice)}</span>`:""}</div>
+    <div class="cardfoot"><span>★ ${Number(p.rating||0).toFixed(1)}</span><button class="addbtn" data-add="${p.id}">Add to cart</button></div></div></article>`).join("");
+  el("productGrid").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>addToCart(Number(b.dataset.add)));
+}
+function addToCart(id){const p=products.find(x=>x.id===id);if(!p)return;const row=cart.find(x=>x.id===id);row?row.quantity++:cart.push({id,quantity:1,name:p.name,price:p.price});saveCart();toast("Added to your cart.");}
+function toast(message){const old=document.querySelector(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=message;t.style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#17251d;color:white;padding:13px 20px;border-radius:5px;z-index:50";document.body.appendChild(t);setTimeout(()=>t.remove(),2400);}
+function show(content){el("modalContent").innerHTML=content;el("modal").classList.remove("hidden");}
+function close(){el("modal").classList.add("hidden");}
+el("closeModal").onclick=close;el("modal").onclick=e=>{if(e.target===el("modal"))close();};
+el("searchForm").onsubmit=e=>{e.preventDefault();activeCategory="All";renderCategories();loadProducts(el("searchInput").value.trim());};
+el("sortSelect").onchange=()=>{sortProducts();renderProducts();};
+el("cartBtn").onclick=showCart;el("accountBtn").onclick=showAccount;el("sellerBtn").onclick=becomeSeller;el("sellerBannerBtn").onclick=becomeSeller;
+function showAccount(){
+  if(currentUser){show(`<h2>Your account</h2><p>Signed in as <b>${safe(currentUser.name)}</b></p><p>${safe(currentUser.email)} · ${safe(currentUser.role)}</p><button class="darkbtn" id="myOrders">My orders</button> <button class="darkbtn" id="logout">Sign out</button><div id="accountExtra"></div>`);el("logout").onclick=()=>{token="";currentUser=null;localStorage.removeItem("fm_token");localStorage.removeItem("fm_user");close();toast("Signed out.");};el("myOrders").onclick=showOrders;return;}
+  authForm("login");
+}
+function authForm(mode){
+  const login=mode==="login";
+  show(`<h2>${login?"Welcome back":"Create your account"}</h2><form id="authForm">
+  ${login?"":'<div class="field"><label>Your name</label><input name="name" required></div>'}
+  <div class="field"><label>Email address</label><input name="email" type="email" required></div>
+  <div class="field"><label>Password (at least 8 characters)</label><input name="password" type="password" minlength="8" required></div>
+  <button class="darkbtn">${login?"Sign in":"Create account"}</button></form>
+  <p class="switchline">${login?"New to FurniMarket?":"Already have an account?"} <button id="switchAuth">${login?"Register":"Sign in"}</button></p>
+  <div id="authError"></div>`);
+  el("switchAuth").onclick=()=>authForm(login?"register":"login");
+  el("authForm").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target));try{const d=await request("/auth/"+(login?"login":"register"),{method:"POST",body:JSON.stringify(body)});token=d.token;currentUser=d.user;localStorage.setItem("fm_token",token);localStorage.setItem("fm_user",JSON.stringify(currentUser));showAccount();}catch(err){el("authError").innerHTML=`<div class="notice">${safe(err.message)}</div>`;}};
+}
+function showCart(){
+  const total=cart.reduce((s,x)=>s+x.price*x.quantity,0);
+  show(`<h2>Your shopping cart</h2>${cart.length?cart.map(x=>`<div class="cartrow"><div><b>${safe(x.name)}</b><small>${money(x.price)} each</small></div><div><button data-minus="${x.id}">−</button> ${x.quantity} <button data-plus="${x.id}">+</button> <button data-remove="${x.id}">×</button></div></div>`).join(""):'<div class="empty">Your cart is empty.</div>'}
+  <div class="total">Total: ${money(total)}</div>${cart.length?'<button class="darkbtn" id="checkoutBtn">Proceed to checkout</button>':""}`);
+  document.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.minus,-1));
+  document.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.plus,1));
+  document.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>{cart=cart.filter(x=>x.id!==+b.dataset.remove);saveCart();showCart();});
+  if(el("checkoutBtn"))el("checkoutBtn").onclick=checkout;
+}
+function changeQty(id,n){const x=cart.find(i=>i.id===id);if(x)x.quantity+=n;cart=cart.filter(i=>i.quantity>0);saveCart();showCart();}
+function checkout(){
+  if(!currentUser){authForm("login");toast("Sign in before checkout.");return;}
+  show(`<h2>Delivery & checkout</h2><form id="checkoutForm">
+  <div class="field"><label>Full name</label><input name="customerName" value="${safe(currentUser.name)}" required></div>
+  <div class="field"><label>Email for payment receipt</label><input name="email" type="email" value="${safe(currentUser.email)}" required></div>
+  <div class="field"><label>Contact phone</label><input name="phone" placeholder="07XXXXXXXX or +256..." required></div>
+  <div class="field"><label>Delivery address / area</label><textarea name="address" required></textarea></div>
+  <div class="field"><label>Delivery notes (optional)</label><textarea name="deliveryNotes"></textarea></div>
+  <div class="field"><label>Payment method</label><select name="paymentMethod" id="paymentMethod"><option value="cash">Cash on delivery</option><option value="mobile">Mobile Money (MTN / Airtel)</option></select></div>
+  <div id="mobileFields" class="hidden"><div class="field"><label>Mobile Money network</label><select name="network"><option value="MTN">MTN Mobile Money</option><option value="AIRTEL">Airtel Money</option></select></div><div class="field"><label>Mobile Money number</label><input name="phoneNumber" placeholder="2567XXXXXXXX"></div><div class="notice">A payment request will be sent to your phone. Approve it using your Mobile Money PIN. Never share your PIN with anyone.</div></div>
+  <button class="darkbtn">Place order · ${money(cart.reduce((s,x)=>s+x.price*x.quantity,0))}</button></form><div id="checkoutError"></div>`);
+  el("paymentMethod").onchange=()=>el("mobileFields").classList.toggle("hidden",el("paymentMethod").value!=="mobile");
+  el("checkoutForm").onsubmit=async e=>{e.preventDefault();const form=Object.fromEntries(new FormData(e.target));const items=cart.map(x=>({id:x.id,quantity:x.quantity}));try{
+    if(form.paymentMethod==="mobile"){
+      if(!form.phoneNumber)throw new Error("Enter the Mobile Money number to charge.");
+      const d=await request("/payments/mobile-money",{method:"POST",body:JSON.stringify({...form,items})});
+      cart=[];saveCart();
+      if(d.redirect){show(`<h2>Complete your payment</h2><p>Order #${d.orderId} has been created. Follow the secure payment step, then return here to verify.</p><a class="primary" href="${safe(d.redirect)}">Continue to payment</a><p class="notice">If the payment prompt appears on your phone, approve it there. Your order will only be confirmed after payment verification.</p><button class="darkbtn" id="checkPayment">Check payment status</button><div id="paymentStatus"></div>`);el("checkPayment").onclick=async()=>{try{const v=await request("/payments/verify/"+encodeURIComponent(d.txRef));el("paymentStatus").textContent="Payment status: "+v.payment.status;}catch(err){el("paymentStatus").textContent=err.message;}};}else{show(`<h2>Payment request sent</h2><p>Approve the payment prompt on your ${safe(form.network)} phone. Order #${d.orderId} is awaiting payment.</p><button class="darkbtn" id="checkPayment">Check payment status</button><div id="paymentStatus"></div>`);el("checkPayment").onclick=async()=>{try{const v=await request("/payments/verify/"+encodeURIComponent(d.txRef));el("paymentStatus").textContent="Payment status: "+v.payment.status;}catch(err){el("paymentStatus").textContent=err.message;}};}
+    }else{
+      const d=await request("/orders",{method:"POST",body:JSON.stringify({...form,items})});cart=[];saveCart();show(`<h2>Thank you for your order!</h2><div class="notice">Order #${d.order.id} received. The store will contact you to confirm delivery and cash payment.</div><button class="darkbtn" id="doneBtn">Continue shopping</button>`);el("doneBtn").onclick=close;
+    }
+  }catch(err){el("checkoutError").innerHTML=`<div class="notice">${safe(err.message)}</div>`;}};
+}
+async function showOrders(){
+  try{const orders=await request("/orders/mine");show(`<h2>Your orders</h2>${orders.length?orders.map(o=>`<div class="orderrow"><div><b>Order #${o.id}</b><small>${new Date(o.createdAt).toLocaleDateString()} · ${o.items.map(i=>safe(i.name)).join(", ")}</small></div><div><b>${money(o.total)}</b><small>${safe(o.status)}</small></div></div>`).join(""):'<p class="empty">You have not placed any orders yet.</p>'}`);}catch(e){toast(e.message);}
+}
+async function becomeSeller(){
+  if(!currentUser){authForm("login");toast("Sign in or create an account first.");return;}
+  if(currentUser.role==="admin"||currentUser.role==="seller"){sellerPanel();return;}
+  show(`<h2>Start selling on FurniMarket</h2><p>Upgrade your account to a seller account. Products you submit will be reviewed before appearing in the store.</p><button class="darkbtn" id="applySeller">Become a seller</button><div id="sellerError"></div>`);
+  el("applySeller").onclick=async()=>{
+try{
+const d=await request("/seller/apply",{method:"POST"});
+token=d.token;
+localStorage.setItem("fm_token",token);
+currentUser=d.user;
+localStorage.setItem("fm_user",JSON.stringify(currentUser));
+sellerPanel();
+}catch(e){
+el("sellerError").textContent=e.message;
+}
+};
+async function sellerPanel(){
+  try{const list=await request("/seller/products");show(`<h2>Seller dashboard</h2><p>Submit a product. Administrator approval is required before it is shown publicly.</p>
+  <form id="productForm"><div class="field"><label>Product name</label><input name="name" required></div><div class="field"><label>Category</label><select name="category">${categories.map(c=>`<option>${safe(c)}</option>`).join("")}</select></div>
+  <div class="field"><label>Price (UGX)</label><input name="price" type="number" min="1" required></div><div class="field"><label>Stock quantity</label><input name="stock" type="number" min="0" value="1"></div><div class="field"><label>Description</label><textarea name="description"></textarea></div><div class="field"><label>Product image URL (optional)</label><input name="image" type="url" placeholder="https://..."></div><div class="field"><label>Or upload product image (JPG, PNG, WEBP, max 5MB)</label><input id="productImageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></div><button class="darkbtn">Submit product</button></form>
+  <h3>Your submitted products</h3>${list.map(p=>`<div class="orderrow"><span>${safe(p.name)}</span><b>${p.approved?"Published":"Pending review"}</b></div>`).join("")}<div id="sellerMsg"></div>`);
+  el("productForm").onsubmit=async e=>{e.preventDefault();try{const form=Object.fromEntries(new FormData(e.target));const file=el("productImageFile").files[0];if(file){const fd=new FormData();fd.append("image",file);const up=await fetch(API+"/uploads/product-image",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const ud=await up.json();if(!up.ok)throw new Error(ud.error||"Image upload failed");form.image=ud.url;}const d=await request("/seller/products",{method:"POST",body:JSON.stringify(form)});toast(d.message);sellerPanel();}catch(err){el("sellerMsg").textContent=err.message;}};
+  }catch(e){show(`<h2>Seller dashboard</h2><p>${safe(e.message)}</p>`);}
+}
+init();
