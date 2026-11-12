@@ -57,7 +57,7 @@ function authForm(mode){
   <div class="field"><label>Email address</label><input name="email" type="email" required></div>
   <div class="field"><label>Password (at least 8 characters)</label><input name="password" type="password" minlength="8" required></div>
   <button class="darkbtn">${login?"Sign in":"Create account"}</button></form>
-  <p class="switchline">${login?"New to FurniMarket?":"Already have an account?"} <button id="switchAuth">${login?"Register":"Sign in"}</button></p>
+  <p class="switchline">${login?"New to citylife furniture &plumbing?":"Already have an account?"} <button id="switchAuth">${login?"Register":"Sign in"}</button></p>
   <div id="authError"></div>`);
   el("switchAuth").onclick=()=>authForm(login?"register":"login");
   el("authForm").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target));try{const d=await request("/auth/"+(login?"login":"register"),{method:"POST",body:JSON.stringify(body)});token=d.token;currentUser=d.user;localStorage.setItem("fm_token",token);localStorage.setItem("fm_user",JSON.stringify(currentUser));showAccount();}catch(err){el("authError").innerHTML=`<div class="notice">${safe(err.message)}</div>`;}};
