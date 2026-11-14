@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17251d">
+  <title>FurniMarket | Furniture for every home</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="topline">Furniture you'll love. Delivered to your door.</div>
+  <header class="header">
+    <a class="brand" href="/">Furni<span>Market</span></a>
+    <form id="searchForm" class="search"><input id="searchInput" placeholder="Search sofas, beds, tables..." aria-label="Search products"><button>Search</button></form>
+    <nav><button class="navbtn" id="accountBtn">Account</button><button class="navbtn" id="sellerBtn">Sell</button><button class="cartbtn" id="cartBtn">Cart <b id="cartCount">0</b></button></nav>
+  </header>
+  <div class="categorybar" id="categoryBar"></div>
+  <main>
+    <section class="hero">
+      <div><p class="eyebrow">MAKE ROOM FOR BETTER LIVING</p><h1>Furniture that makes <em>home</em>, home.</h1><p>Discover thoughtful pieces for every corner, from cosy sofas to beautiful bedroom sets.</p><a class="primary" href="#products">Shop furniture</a></div>
+      <div class="hero-art"><div class="hero-label">Your home, your style.</div></div>
+    </section>
+    <section class="benefits"><span>✓ Quality furniture</span><span>✓ Secure ordering</span><span>✓ Delivery options</span><span>✓ Local sellers welcome</span></section>
+    <section class="section" id="products">
+      <div class="sectionhead"><div><p class="eyebrow">CURATED FOR YOUR HOME</p><h2>Explore furniture</h2></div><select id="sortSelect" aria-label="Sort products"><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option></select></div>
+      <div id="productGrid" class="grid"><p>Loading furniture...</p></div>
+    </section>
+    <section class="seller-banner"><div><p class="eyebrow">ARE YOU A FURNITURE BUSINESS?</p><h2>Put your products in front of more customers.</h2><p>Open a seller account and submit your furniture to the marketplace.</p></div><button class="lightbtn" id="sellerBannerBtn">Become a seller</button></section>
+  </main>
+  <footer><div class="brand">Furni<span>Market</span></div><p>Furniture shopping made simpler.</p><small>© <span id="year"></span> FurniMarket. Demo marketplace starter.</small></footer>
+  <div id="modal" class="modal hidden"><div class="modalbox"><button class="close" id="closeModal">×</button><div id="modalContent"></div></div></div>
+  <script src="/app.js"></script>
+</body>
+</html>
